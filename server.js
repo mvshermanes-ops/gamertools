@@ -41,7 +41,7 @@ const server = http.createServer((req, res) => {
     }
     res.writeHead(200, {
       "Content-Type": mime[path.extname(filePath)] || "application/octet-stream",
-      "Cache-Control": "public, max-age=300"
+      "Cache-Control": "no-store, no-cache, must-revalidate"
     });
     res.end(data);
   });
