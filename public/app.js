@@ -67,9 +67,13 @@ const tools = [
   {id:"qr",cat:"general",icon:"▦",name:"QR Code Generator",desc:"Create a QR code from text or a URL.",fields:[["text","Text or URL","text"]]}
 ];
 
-const grids={gaming:document.querySelector("#gamingGrid"),pc:document.querySelector("#pcGrid"),general:document.querySelector("#generalGrid")};
-const panel=document.querySelector("#toolPanel"), content=document.querySelector("#toolContent"), search=document.querySelector("#toolSearch");
-document.querySelector("#year").textContent=new Date().getFullYear();
+let grids, panel, content, search;
+function initGameTools(){
+  grids={gaming:document.querySelector("#gamingGrid"),pc:document.querySelector("#pcGrid"),general:document.querySelector("#generalGrid")};
+  panel=document.querySelector("#toolPanel");
+  content=document.querySelector("#toolContent");
+  search=document.querySelector("#toolSearch");
+  document.querySelector("#year").textContent=new Date().getFullYear();
 document.querySelector("#toolCount").textContent=tools.length;
 
 function card(t){return `<article class="tool-card" data-id="${t.id}"><div class="tool-icon">${t.icon}</div><h3>${t.name}</h3><p>${t.desc}</p></article>`}
@@ -125,13 +129,23 @@ function calculate(t){
   }
   if(t.id==="random"){const list=v("games").split(",").map(x=>x.trim()).filter(Boolean); text=list.length?`<div class="big-result">${list[Math.floor(Math.random()*list.length)]}</div>`:"<p>Enter at least two games separated by commas.</p>";}
   if(t.id==="convert"){const n=+v("value")||0; const u=v("unit"); const m={"km → miles":n*.621371,"miles → km":n*1.609344,"GB → MB":n*1024,"MB → GB":n/1024,"kg → lb":n*2.20462,"lb → kg":n*.453592}; text=`<div class="big-result">${(m[u]??n).toFixed(4)}</div>`;}
-  if(t.id==="qr"){const textValue=v("text"); if(!textValue){text="<p>Enter text or a URL first.</p>"}else{text=`<div class="big-result">QR ready</div><p>For the first release, QR generation will be added with a lightweight browser library.</p>`}}
+  if(t.id==="qr"){
+    const textValue=v("text");
+    if(!textValue){text="<p>Enter text or a URL first.</p>";}
+    else if(typeof QRCode==="undefined"){text="<p>QR generator is still loading. Please try again in a moment.</p>";}
+    else{
+      text=`<div class="qr-output"><div id="qrCode"></div><p class="muted-note">Scan this QR code with your phone camera.</p></div>`;
+      setTimeout(()=>{const el=document.querySelector("#qrCode");if(el) new QRCode(el,{text:textValue,width:220,height:220,correctLevel:QRCode.CorrectLevel.M});},0);
+    }
+  }
   const r=document.querySelector("#result"); r.innerHTML=text;r.hidden=false;
 }
-search.addEventListener("input",e=>{const q=e.target.value.toLowerCase().trim();render(q?tools.filter(t=>(t.name+" "+t.desc).toLowerCase().includes(q)):tools)});
-document.querySelector("#closeTool").onclick=()=>{panel.hidden=true};
-render();
+  search.addEventListener("input",e=>{const q=e.target.value.toLowerCase().trim();render(q?tools.filter(t=>(t.name+" "+t.desc).toLowerCase().includes(q)):tools)});
+  document.querySelector("#closeTool").onclick=()=>{panel.hidden=true};
+  render();
+}
 
+window.addEventListener("DOMContentLoaded",initGameTools);
 
 async function detectGPU(){
   let renderer="";
