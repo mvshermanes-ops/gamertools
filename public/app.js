@@ -123,8 +123,9 @@ function calculate(t){
     if(gpu){
       let base=res==="1440p"?gpu.fps1440:res==="4K"?gpu.fps4k:gpu.fps1080;
       const multiplier={Low:1.22,Medium:1.10,High:0.92,Ultra:1}[set];
-      const fps=Math.max(1,base*multiplier);
-      text=`<div class="big-result">~${Math.round(fps)} FPS</div><p><strong>${gpu.name}</strong> benchmark-based estimate at ${res} ${set}. The baseline comes from a published multi-game GPU benchmark hierarchy; actual FPS varies by game, CPU, drivers and settings.</p><button class="action" id="detectGpu" type="button">🔍 Detect my GPU</button><div id="gpuDetectResult" style="margin-top:12px"></div>`;
+      const rangeLow=Math.max(1,Math.round(fps*0.85));
+      const rangeHigh=Math.max(rangeLow,Math.round(fps*1.15));
+      text=`<div class="big-result">${rangeLow}–${rangeHigh} FPS</div><p><strong>${gpu.name}</strong> benchmark-based estimate at ${res} ${set}. The range accounts for normal variation between games, scenes, drivers and system configurations.</p><p class="muted-note">This is an estimate, not a guaranteed FPS result. Actual performance can fall outside the range in especially demanding or well-optimized games.</p><button class="action" id="detectGpu" type="button">🔍 Detect my GPU</button><div id="gpuDetectResult" style="margin-top:12px"></div>`;
     }
   }
   if(t.id==="random"){const list=v("games").split(",").map(x=>x.trim()).filter(Boolean); text=list.length?`<div class="big-result">${list[Math.floor(Math.random()*list.length)]}</div>`:"<p>Enter at least two games separated by commas.</p>";}
