@@ -78,7 +78,7 @@ function render(list=tools){
 }
 function fieldHTML(f){
   const [id,label,type,opts]=f;
-  if(type==="select") return `<div class="field"><label for="${id}">${label}</label><select id="${id}">${opts.map(o=>`<option>${o}</option>`).join("")}</select></div>`;
+  if(type==="select") return `<div class="field"><label for="${id}">${label}</label><select id="${id}">${opts.map((o,i)=>`<option value="${o}"${i===0?" selected":""}>${o}</option>`).join("")}</select></div>`;
   return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${type==="number"?"number":"text"}" step="any"></div>`;
 }
 function openTool(id){
