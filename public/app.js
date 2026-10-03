@@ -31,7 +31,19 @@ const gpuDatabase = [
   {name:"GeForce GTX 1070 Ti",aliases:["GTX 1070 Ti"],fps1080:51.1,fps1440:37.9,fps4k:19.0},
   {name:"Radeon RX 580 8GB",aliases:["RX 580","RX 580 8GB"],fps1080:35.3,fps1440:26.0,fps4k:14.0},
   {name:"GeForce GTX 1650 Super",aliases:["GTX 1650 Super"],fps1080:33.9,fps1440:21.2,fps4k:11.0},
-  {name:"Radeon RX 5500 XT 4GB",aliases:["RX 5500 XT","RX 5500 XT 4GB"],fps1080:33.3,fps1440:23.0,fps4k:12.0}
+  {name:"Radeon RX 5500 XT 4GB",aliases:["RX 5500 XT","RX 5500 XT 4GB"],fps1080:33.3,fps1440:23.0,fps4k:12.0},
+  {name:"GeForce GTX 1660 Ti",aliases:["GTX 1660 Ti","1660 Ti"],fps1080:49.5,fps1440:36.0,fps4k:17.0},
+  {name:"GeForce GTX 1660",aliases:["GTX 1660"],fps1080:44.8,fps1440:32.0,fps4k:15.0},
+  {name:"GeForce GTX 1650",aliases:["GTX 1650"],fps1080:29.7,fps1440:19.0,fps4k:9.5},
+  {name:"GeForce GTX 1060 6GB",aliases:["GTX 1060 6GB","GTX 1060"],fps1080:37.5,fps1440:26.0,fps4k:13.0},
+  {name:"GeForce GTX 1060 3GB",aliases:["GTX 1060 3GB"],fps1080:34.0,fps1440:23.5,fps4k:11.5},
+  {name:"GeForce GTX 1050 Ti",aliases:["GTX 1050 Ti"],fps1080:25.0,fps1440:16.0,fps4k:8.0},
+  {name:"GeForce GTX 1050",aliases:["GTX 1050"],fps1080:20.0,fps1440:13.0,fps4k:6.5},
+  {name:"GeForce GTX 980 Ti",aliases:["GTX 980 Ti"],fps1080:46.0,fps1440:32.0,fps4k:17.0},
+  {name:"GeForce GTX 980",aliases:["GTX 980"],fps1080:39.0,fps1440:27.0,fps4k:14.0},
+  {name:"GeForce GTX 970",aliases:["GTX 970"],fps1080:34.0,fps1440:24.0,fps4k:12.0},
+  {name:"GeForce GTX 960",aliases:["GTX 960"],fps1080:24.0,fps1440:16.0,fps4k:8.0},
+  {name:"GeForce GTX 950",aliases:["GTX 950"],fps1080:19.0,fps1440:12.0,fps4k:6.0}
 ];
 
 const tools = [
