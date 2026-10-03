@@ -46,6 +46,10 @@ const gpuDatabase = [
   {name:"GeForce GTX 950",aliases:["GTX 950"],fps1080:19.0,fps1440:12.0,fps4k:6.0}
 ];
 
+const cpuDatabase = [
+{name:"Ryzen 9 9950X3D",score:100},{name:"Ryzen 7 9800X3D",score:96},{name:"Core Ultra 9 285K",score:92},{name:"Ryzen 9 9950X",score:91},{name:"Core i9-14900K",score:90},{name:"Ryzen 7 9700X",score:86},{name:"Core Ultra 7 265K",score:85},{name:"Ryzen 7 7800X3D",score:84},{name:"Core i7-14700K",score:83},{name:"Ryzen 9 7900X",score:81},{name:"Ryzen 7 7700X",score:78},{name:"Core i5-14600K",score:77},{name:"Ryzen 5 7600X",score:75},{name:"Core i5-14400F",score:70},{name:"Ryzen 7 5800X3D",score:69},{name:"Ryzen 9 5900X",score:67},{name:"Core i7-12700K",score:66},{name:"Ryzen 7 5700X3D",score:65},{name:"Ryzen 7 5800X",score:62},{name:"Core i5-12600K",score:61},{name:"Ryzen 5 5600X",score:58},{name:"Ryzen 5 5600",score:56},{name:"Core i5-12400F",score:55},{name:"Ryzen 5 5500",score:50},{name:"Ryzen 5 3600",score:43},{name:"Core i5-10400F",score:42},{name:"Ryzen 5 2600",score:34},{name:"Core i7-8700K",score:33},{name:"Core i5-8400",score:28},{name:"Core i7-7700K",score:25},{name:"Ryzen 3 3100",score:23},{name:"Core i3-10100F",score:22},{name:"Core i5-6500",score:18}
+];
+
 const tools = [
   {id:"fps",cat:"gaming",icon:"🎮",name:"FPS Calculator",desc:"Estimate FPS using a specific graphics card and published benchmark performance.",fields:[
     ["gpu","Graphics card","select",gpuDatabase.map(g=>g.name)],
@@ -55,7 +59,7 @@ const tools = [
   {id:"edpi",cat:"gaming",icon:"🎯",name:"eDPI Calculator",desc:"Calculate effective DPI for competitive FPS games.",fields:[["dpi","Mouse DPI","number"],["sens","In-game sensitivity","number"]]},
   {id:"sens",cat:"gaming",icon:"🖱️",name:"Sensitivity Converter",desc:"Convert sensitivity between common DPI values.",fields:[["sens","Current sensitivity","number"],["from","Current DPI","number"],["to","Target DPI","number"]]},
   {id:"random",cat:"gaming",icon:"🎲",name:"Random Game Picker",desc:"Can't decide what to play? Let GameTools choose.",fields:[["games","Games (comma separated)","text"]]},
-  {id:"bottleneck",cat:"pc",icon:"⚙️",name:"Bottleneck Calculator",desc:"Get a simple CPU/GPU balance estimate.",fields:[["cpu","CPU tier","select",["Entry-level","Mid-range","High-end"]],["gpu","GPU tier","select",["Entry-level","Mid-range","High-end"]]]},
+  {id:"bottleneck",cat:"pc",icon:"⚙️",name:"Bottleneck Calculator",desc:"Search for your exact CPU and GPU and estimate which component is more likely to limit gaming performance.",fields:[["cpu","Search / choose your CPU","searchselect",cpuDatabase.map(c=>c.name)],["gpu","Search / choose your GPU","searchselect",gpuDatabase.map(g=>g.name)],["resolution","Gaming resolution","select",["1080p","1440p","4K"]]]},
   {id:"psu",cat:"pc",icon:"🔌",name:"PSU Wattage Calculator",desc:"Estimate a sensible power-supply capacity.",fields:[["gpu","GPU power (watts)","number"],["cpu","CPU power (watts)","number"],["extra","Other system power (watts)","number"]]},
   {id:"storage",cat:"pc",icon:"💾",name:"Storage Calculator",desc:"Estimate how many games fit on your drive.",fields:[["drive","Drive size (GB)","number"],["game","Average game size (GB)","number"]]},
   {id:"percentage",cat:"general",icon:"％",name:"Percentage Calculator",desc:"Calculate percentages quickly.",fields:[["value","Number","number"],["percent","Percentage","number"]]},
@@ -78,7 +82,7 @@ function render(list=tools){
 }
 function fieldHTML(f){
   const [id,label,type,opts]=f;
-  if(type==="select") return `<div class="field"><label for="${id}">${label}</label><select id="${id}">${opts.map((o,i)=>`<option value="${o}"${i===0?" selected":""}>${o}</option>`).join("")}</select></div>`;
+  if(type==="select") return `<div class="field"><label for="${id}">${label}</label><select id="${id}">${opts.map((o,i)=>`<option value="${o}"${i===0?" selected":""}>${o}</option>`).join("")}</select></div>`;\n  if(type==="searchselect") return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="search" list="${id}Options" placeholder="Type to search..." autocomplete="off"><datalist id="${id}Options">${opts.map(o=>`<option value="${o}">`).join("")}</datalist></div>`;
   return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${type==="number"?"number":"text"}" step="any"></div>`;
 }
 function openTool(id){
@@ -95,7 +99,7 @@ function calculate(t){
   if(t.id==="percentage") text=`<div class="big-result">${(((+v("value")||0)*(+v("percent")||0))/100).toFixed(2)}</div>`;
   if(t.id==="psu"){const watts=(+v("gpu")||0)+(+v("cpu")||0)+(+v("extra")||0); const recommended=Math.ceil((watts*1.35)/50)*50; text=`<div class="big-result">${recommended}W</div><p>Estimated recommendation with headroom. Actual PSU needs vary by hardware.</p>`;}
   if(t.id==="storage"){const n=(+v("drive")||0)/(+v("game")||1); text=`<div class="big-result">About ${Math.floor(n)} games</div><p>Based on the average game size you entered.</p>`;}
-  if(t.id==="bottleneck"){const a=v("cpu"),b=v("gpu"); text=`<div class="big-result">${a===b?"Balanced":"Potential imbalance"}</div><p>This is a simple tier comparison, not a benchmark.</p>`;}
+  if(t.id==="bottleneck"){const cpu=cpuDatabase.find(x=>x.name.toLowerCase()===v("cpu").toLowerCase()); const gpu=gpuDatabase.find(x=>x.name.toLowerCase()===v("gpu").toLowerCase()); const res=v("resolution"); if(!cpu||!gpu){text=`<p>Please search and select a CPU and GPU from the suggestions.</p>`;}else{const gpuScore=gpu.fps1080; const cpuFactor=res==="1080p"?1.18:res==="1440p"?0.93:0.72; const cpuEquivalent=cpu.score*cpuFactor; const ratio=cpuEquivalent/gpuScore; let verdict,detail; if(ratio<0.72){verdict="CPU-limited";detail=`Your CPU is the more likely limiting component at ${res}. A faster CPU could improve performance, especially in high-FPS or CPU-heavy games.`;}else if(ratio>1.35){verdict="GPU-limited";detail=`Your GPU is the more likely limiting component at ${res}. A faster GPU would generally have more impact on graphics-bound workloads.`;}else{verdict="Fairly balanced";detail=`The CPU and GPU are in a relatively balanced range for ${res}, although the exact result varies by game, settings and frame-rate target.`;} text=`<div class="big-result">${verdict}</div><p><strong>${cpu.name}</strong> + <strong>${gpu.name}</strong> at <strong>${res}</strong>.</p><p>${detail}</p><p class="muted-note">This is an estimate, not a universal bottleneck percentage. Different games can shift the limiting component substantially.</p>`;}}
   if(t.id==="fps"){
     const gpu=gpuDatabase.find(g=>g.name===v("gpu"));
     const res=v("resolution"),set=v("settings");
