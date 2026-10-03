@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Free gaming, PC and everyday online tools. Fast, simple and free to use.">
+  <meta name="theme-color" content="#0b1020">
+  <title>GameTools — Free Gaming & PC Tools</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="GameTools home"><span class="brand-mark">GT</span><span>GameTools</span></a>
+    <nav>
+      <a href="#gaming">Gaming</a>
+      <a href="#pc">PC</a>
+      <a href="#general">General</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">FREE • FAST • NO ACCOUNT</p>
+        <h1>Useful tools for gamers, PC builders and everyone else.</h1>
+        <p class="hero-text">Calculators, converters and gaming utilities that work right in your browser.</p>
+        <div class="search-wrap">
+          <span>⌕</span>
+          <input id="toolSearch" type="search" placeholder="Search for a tool..." autocomplete="off">
+        </div>
+      </div>
+      <div class="hero-card">
+        <div class="mini-label">AVAILABLE NOW</div>
+        <strong id="toolCount">10</strong>
+        <span>free tools</span>
+      </div>
+    </section>
+
+    <section class="section" id="gaming">
+      <div class="section-heading"><div><p class="eyebrow">GAMING</p><h2>Gaming tools</h2></div></div>
+      <div class="tool-grid" id="gamingGrid"></div>
+    </section>
+
+    <section class="section" id="pc">
+      <div class="section-heading"><div><p class="eyebrow">PC</p><h2>PC tools</h2></div></div>
+      <div class="tool-grid" id="pcGrid"></div>
+    </section>
+
+    <section class="section" id="general">
+      <div class="section-heading"><div><p class="eyebrow">EVERYDAY</p><h2>General tools</h2></div></div>
+      <div class="tool-grid" id="generalGrid"></div>
+    </section>
+
+    <section class="tool-panel" id="toolPanel" hidden>
+      <button class="close-btn" id="closeTool">×</button>
+      <div id="toolContent"></div>
+    </section>
+
+    <section class="empty-state" id="noResults" hidden>
+      <h2>No tools found</h2>
+      <p>Try another search.</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>© <span id="year"></span> GameTools</span>
+    <span>Free tools. No account required.</span>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
