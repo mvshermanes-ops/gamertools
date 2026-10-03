@@ -82,7 +82,8 @@ function render(list=tools){
 }
 function fieldHTML(f){
   const [id,label,type,opts]=f;
-  if(type==="select") return `<div class="field"><label for="${id}">${label}</label><select id="${id}">${opts.map((o,i)=>`<option value="${o}"${i===0?" selected":""}>${o}</option>`).join("")}</select></div>`;\n  if(type==="searchselect") return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="search" list="${id}Options" placeholder="Type to search..." autocomplete="off"><datalist id="${id}Options">${opts.map(o=>`<option value="${o}">`).join("")}</datalist></div>`;
+  if(type==="select") return `<div class="field"><label for="${id}">${label}</label><select id="${id}">${opts.map((o,i)=>`<option value="${o}"${i===0?" selected":""}>${o}</option>`).join("")}</select></div>`;
+  if(type==="searchselect") return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="search" list="${id}Options" placeholder="Type to search..." autocomplete="off"><datalist id="${id}Options">${opts.map(o=>`<option value="${o}">`).join("")}</datalist></div>`;
   return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${type==="number"?"number":"text"}" step="any"></div>`;
 }
 function openTool(id){
@@ -91,6 +92,7 @@ function openTool(id){
   panel.hidden=false; panel.scrollIntoView({behavior:"smooth",block:"center"});
   document.querySelector("#calculate").onclick=()=>{calculate(t); if(id==="fps"){const detect=document.querySelector("#detectGpu"); if(detect) detect.onclick=detectGPU;}};
 }
+window.openTool = openTool;
 function calculate(t){
   const v=id=>document.querySelector("#"+id)?.value;
   let text="";
