@@ -4,6 +4,10 @@
   "private": true,
   "description": "Free gaming, PC and everyday online tools.",
   "scripts": {
+    "build": "node -e \"console.log('GameTools build complete')\"",
     "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18 <23"
   }
 }
