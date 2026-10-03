@@ -25,7 +25,7 @@ const server = http.createServer((req, res) => {
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      if (err.code === "ENOENT") {
+      if (err.code === "ENOENT" && !path.extname(filePath)) {
         const fallback = path.join(publicDir, "index.html");
         return fs.readFile(fallback, (fallbackErr, fallbackData) => {
           if (fallbackErr) {
