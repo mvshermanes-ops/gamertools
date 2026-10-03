@@ -140,8 +140,8 @@ async function detectGPU(){
   if(match){
     const select=document.querySelector("#gpu");
     if(select) select.value=match.name;
-    out.innerHTML=\`<p>Detected: <strong>${match.name}</strong>. The calculator has selected the matching benchmark profile.</p>\`;
+    out.innerHTML=`<p>Detected: <strong>${match.name}</strong>. The calculator has selected the matching benchmark profile.</p>`;
   }else{
-    out.innerHTML=\`<p>Detected renderer: <strong>${renderer||"Unavailable"}</strong>. We couldn't safely match it to our GPU database. You can still select your GPU manually.</p>\`;
+    out.innerHTML=`<p>Detected renderer: <strong>${renderer||"Unavailable"}</strong>. We couldn't safely match it to our GPU database. You can still select your GPU manually.</p>`;
   }
 }
