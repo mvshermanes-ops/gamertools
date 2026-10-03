@@ -85,7 +85,7 @@ function openTool(id){
   const t=tools.find(x=>x.id===id); if(!t)return;
   content.innerHTML=`<p class="eyebrow">${t.cat.toUpperCase()}</p><h2>${t.icon} ${t.name}</h2><p>${t.desc}</p><div class="form-grid">${t.fields.map(fieldHTML).join("")}</div><button class="action" id="calculate">Calculate</button><div id="result" class="result" hidden></div>`;
   panel.hidden=false; panel.scrollIntoView({behavior:"smooth",block:"center"});
-  document.querySelector("#calculate").onclick=()=>calculate(t); if(id==="fps") document.querySelector("#detectGpu").onclick=detectGPU;
+  document.querySelector("#calculate").onclick=()=>{calculate(t); if(id==="fps"){const detect=document.querySelector("#detectGpu"); if(detect) detect.onclick=detectGPU;}};
 }
 function calculate(t){
   const v=id=>document.querySelector("#"+id)?.value;
@@ -103,7 +103,7 @@ function calculate(t){
       let base=res==="1440p"?gpu.fps1440:res==="4K"?gpu.fps4k:gpu.fps1080;
       const multiplier={Low:1.22,Medium:1.10,High:0.92,Ultra:1}[set];
       const fps=Math.max(1,base*multiplier);
-      text=\`<div class="big-result">~\${Math.round(fps)} FPS</div><p><strong>\${gpu.name}</strong> benchmark-based estimate at \${res} \${set}. The baseline comes from a published multi-game GPU benchmark hierarchy; actual FPS varies by game, CPU, drivers and settings.</p><button class="action" id="detectGpu" type="button">🔍 Detect my GPU</button><div id="gpuDetectResult" style="margin-top:12px"></div>\`;
+      text=`<div class="big-result">~${Math.round(fps)} FPS</div><p><strong>${gpu.name}</strong> benchmark-based estimate at ${res} ${set}. The baseline comes from a published multi-game GPU benchmark hierarchy; actual FPS varies by game, CPU, drivers and settings.</p><button class="action" id="detectGpu" type="button">🔍 Detect my GPU</button><div id="gpuDetectResult" style="margin-top:12px"></div>`;
     }
   }
   if(t.id==="random"){const list=v("games").split(",").map(x=>x.trim()).filter(Boolean); text=list.length?`<div class="big-result">${list[Math.floor(Math.random()*list.length)]}</div>`:"<p>Enter at least two games separated by commas.</p>";}
@@ -140,8 +140,8 @@ async function detectGPU(){
   if(match){
     const select=document.querySelector("#gpu");
     if(select) select.value=match.name;
-    out.innerHTML=\`<p>Detected: <strong>\${match.name}</strong>. The calculator has selected the matching benchmark profile.</p>\`;
+    out.innerHTML=\`<p>Detected: <strong>${match.name}</strong>. The calculator has selected the matching benchmark profile.</p>\`;
   }else{
-    out.innerHTML=\`<p>Detected renderer: <strong>\${renderer||"Unavailable"}</strong>. We couldn't safely match it to our GPU database. You can still select your GPU manually.</p>\`;
+    out.innerHTML=\`<p>Detected renderer: <strong>${renderer||"Unavailable"}</strong>. We couldn't safely match it to our GPU database. You can still select your GPU manually.</p>\`;
   }
 }
