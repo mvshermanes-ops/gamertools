@@ -41,6 +41,12 @@ public class MainActivity extends Activity implements SensorEventListener {
     AudioRecord rec;
     volatile boolean audioOn=false;
     volatile int level=0;
+    volatile int filteredAudioLevel=0;
+    volatile int audioNoiseFloor=0;
+    volatile boolean audioSpike=false;
+    long audioSpikeUntil=0L;
+    int audioBaselineSamples=0;
+    float audioBaseline=0f;
     Thread audioThread;
 
     @Override public void onCreate(Bundle b){
@@ -117,6 +123,17 @@ public class MainActivity extends Activity implements SensorEventListener {
                         double db=20.0*Math.log10(Math.max(rms,0.00001));
                         int mapped=(int)Math.round((db+60.0)*100.0/60.0);
                         level=Math.max(0,Math.min(100,mapped));
+                        if(audioBaselineSamples<40){
+                            audioBaselineSamples++;
+                            audioBaseline += (level-audioBaseline)/audioBaselineSamples;
+                        }else{
+                            audioBaseline = audioBaseline*0.995f + level*0.005f;
+                        }
+                        audioNoiseFloor=(int)Math.round(audioBaseline);
+                        int excess=Math.max(0,level-audioNoiseFloor);
+                        filteredAudioLevel=(int)(filteredAudioLevel*0.82f+excess*0.18f);
+                        if(excess>=30){ audioSpike=true; audioSpikeUntil=System.currentTimeMillis()+700L; }
+                        else if(System.currentTimeMillis()>audioSpikeUntil) audioSpike=false;
                     }else{
                         level=0;
                     }
@@ -127,6 +144,8 @@ public class MainActivity extends Activity implements SensorEventListener {
         }catch(Exception e){
             audioOn=false;
             level=0;
+            filteredAudioLevel=0;
+            audioSpike=false;
         }
     }
 
@@ -217,6 +236,11 @@ public class MainActivity extends Activity implements SensorEventListener {
         spikeDetected=false;
         spikeUntil=0L;
         rate=0f;
+        audioBaselineSamples=0;
+        audioBaseline=0f;
+        filteredAudioLevel=0;
+        audioNoiseFloor=0;
+        audioSpike=false;
         if(v!=null) v.invalidate();
     }
 
@@ -323,10 +347,10 @@ public class MainActivity extends Activity implements SensorEventListener {
             p.setColor(Color.rgb(30,43,60));
             c.drawArc(30,150,210,330,140,260,false,p);
             p.setColor(green);
-            c.drawArc(30,150,210,330,140,Math.min(250,total/2f),false,p);
+            c.drawArc(30,150,210,330,140,Math.min(250,filteredTotal/2f),false,p);
             p.setStyle(Paint.Style.FILL);
 
-            t(c,String.format(Locale.US,"%.2f",total),73,245,38,white);
+            t(c,String.format(Locale.US,"%.2f",filteredTotal),73,245,38,white);
             t(c,"µT",113,267,14,muted);
             t(c,"Magnetic Field",69,294,12,muted);
 
@@ -338,7 +362,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 
             box(c,10,463,w-10,518);
             t(c,"♢  Alert Threshold",22,497,13,muted);
-            t(c,"2.0 µT  ›",w-86,497,11,white);
+            t(c,spikeDetected?"⚠ BIG SPIKE":"8.0 µT  ›",w-98,497,11,spikeDetected?Color.RED:white);
             t(c,"Physical magnetic-field data. An anomaly is not proof of paranormal activity.",15,542,8,muted);
         }
 
@@ -346,12 +370,12 @@ public class MainActivity extends Activity implements SensorEventListener {
             box(c,10,105,w-10,370);
             t(c,"◎  REM DETECTOR",22,131,19,white);
             t(c,"● MONITORING",w-112,131,9,green);
-            t(c,String.format(Locale.US,"%.3f µT/s",rate),25,197,34,white);
+            t(c,String.format(Locale.US,"%.2f µT/s",smoothRate),25,197,34,white);
             t(c,"MAGNETIC CHANGE RATE",27,220,9,muted);
             t(c,"Sensitivity",27,267,12,muted);
-            t(c,"MEDIUM   ›",w-92,267,11,white);
+            t(c,spikeDetected?"⚠ SPIKE":"LOW   ›",w-92,267,11,spikeDetected?Color.RED:white);
             t(c,"Monitors rapid changes in the magnetic-field sensor.",17,330,9,muted);
-            t(c,"Movement, electronics and the environment can cause changes.",17,347,9,muted);
+            t(c,spikeDetected?"SIGNIFICANT MAGNETIC CHANGE":"Small changes are filtered out.",17,347,9,spikeDetected?Color.RED:muted);
         }
 
         void talk(Canvas c,float w){
@@ -361,20 +385,20 @@ public class MainActivity extends Activity implements SensorEventListener {
             t(c,audioOn?"● MIC ACTIVE":(micGranted?"● MIC READY":"● MIC PERMISSION NEEDED"),w-145,131,9,audioOn?green:(micGranted?cyan:Color.RED));
 
             t(c,"AUDIO LEVEL",25,177,9,muted);
-            t(c,String.format(Locale.US,"%d %%",level),25,220,36,white);
+            t(c,String.format(Locale.US,"%d %%",filteredAudioLevel),25,220,36,white);
 
             p.setColor(cyan);
             float baseY=345;
             float barW=(w-50)/40f;
             for(int i=0;i<40;i++){
                 float wave=(float)(0.25+0.75*Math.abs(Math.sin(i*0.72)));
-                float bh=5+level*0.90f*wave;
+                float bh=5+filteredAudioLevel*0.90f*wave;
                 float left=25+i*barW;
                 c.drawRoundRect(left,baseY-bh,left+Math.max(3,barW-2),baseY,2,2,p);
             }
 
-            t(c,"LIVE MICROPHONE ANALYSIS",25,375,9,muted);
-            t(c,"Speak or make a sound near the phone to test the level.",15,432,9,muted);
+            t(c,audioSpike?"⚠  LOUD AUDIO SPIKE":"FILTERED AUDIO / NOISE GATE",25,375,9,audioSpike?Color.RED:muted);
+            t(c,"Small background noise is filtered; large sounds break through.",15,432,9,muted);
         }
 
         void radar(Canvas c,float w){
