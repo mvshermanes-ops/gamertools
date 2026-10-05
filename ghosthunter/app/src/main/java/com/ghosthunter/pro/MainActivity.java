@@ -22,7 +22,7 @@ public class MainActivity extends Activity implements SensorEventListener {
     float baselineWorldX,baselineWorldY,baselineWorldZ;
     boolean baselineReady=false;
     boolean rotationReady=false;
-    int sensorAccuracy=SensorManager.SENSOR_STATUS_ACCURACY_UNRELIABLE;
+    int sensorAccuracy=SensorManager.SENSOR_STATUS_UNRELIABLE;
     float[] rotationMatrix=new float[9];
     float[] rotationVectorMatrix=new float[9];
     float headingDeg=0f;
@@ -31,6 +31,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     final ArrayDeque<RadarPoint> radarTrail = new ArrayDeque<>();
     int radarSensitivity = 2;
+    float radarTargetX=0f, radarTargetY=0f;
     static class RadarPoint { float x,y,alpha; RadarPoint(float x,float y,float alpha){this.x=x;this.y=y;this.alpha=alpha;} }
 
     AudioRecord rec;
