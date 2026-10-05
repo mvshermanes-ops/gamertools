@@ -1,9 +1,7 @@
 name: Build Ghost Hunter APK
 on:
   push:
-    branches: [ ghost-hunter-pro ]
-  pull_request:
-    branches: [ main ]
+    branches: [ main, ghost-hunter-pro ]
   workflow_dispatch:
 jobs:
   build:
