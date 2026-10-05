@@ -13,11 +13,19 @@ import java.util.*;
 public class MainActivity extends Activity implements SensorEventListener {
     SensorManager sm;
     Sensor mag;
+    Sensor rotationSensor;
     GhostView v;
     float x,y,z,total,prev,rate;
     float smoothRate=0f;
     float baselineX,baselineY,baselineZ,baselineTotal;
+    float worldX,worldY,worldZ;
+    float baselineWorldX,baselineWorldY,baselineWorldZ;
     boolean baselineReady=false;
+    boolean rotationReady=false;
+    int sensorAccuracy=SensorManager.SENSOR_STATUS_ACCURACY_UNRELIABLE;
+    float[] rotationMatrix=new float[9];
+    float[] rotationVectorMatrix=new float[9];
+    float headingDeg=0f;
     int baselineSamples=0;
     long last;
 
@@ -37,11 +45,13 @@ public class MainActivity extends Activity implements SensorEventListener {
 
         sm=(SensorManager)getSystemService(SENSOR_SERVICE);
         mag=sm.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        rotationSensor=sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
 
         v=new GhostView();
         setContentView(v);
 
         if(mag!=null) sm.registerListener(this,mag,SensorManager.SENSOR_DELAY_GAME);
+        if(rotationSensor!=null) sm.registerListener(this,rotationSensor,SensorManager.SENSOR_DELAY_GAME);
 
         if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED){
             startAudio();
@@ -126,29 +136,56 @@ public class MainActivity extends Activity implements SensorEventListener {
     }
 
     @Override public void onSensorChanged(SensorEvent e){
+        if(e.sensor.getType()==Sensor.TYPE_ROTATION_VECTOR){
+            SensorManager.getRotationMatrixFromVector(rotationVectorMatrix,e.values);
+            System.arraycopy(rotationVectorMatrix,0,rotationMatrix,0,9);
+            float[] orientation=new float[3];
+            SensorManager.getOrientation(rotationMatrix,orientation);
+            headingDeg=(float)Math.toDegrees(orientation[0]);
+            if(headingDeg<0) headingDeg+=360f;
+            rotationReady=true;
+            if(v!=null) v.postInvalidate();
+            return;
+        }
+
         if(e.sensor.getType()!=Sensor.TYPE_MAGNETIC_FIELD)return;
+
         x=e.values[0]; y=e.values[1]; z=e.values[2];
         total=(float)Math.sqrt(x*x+y*y+z*z);
+        sensorAccuracy=e.accuracy;
+
+        if(rotationReady){
+            worldX=rotationMatrix[0]*x+rotationMatrix[1]*y+rotationMatrix[2]*z;
+            worldY=rotationMatrix[3]*x+rotationMatrix[4]*y+rotationMatrix[5]*z;
+            worldZ=rotationMatrix[6]*x+rotationMatrix[7]*y+rotationMatrix[8]*z;
+        }else{
+            worldX=x; worldY=y; worldZ=z;
+        }
 
         if(!baselineReady){
             baselineSamples++;
             float n=baselineSamples;
             if(baselineSamples==1){
                 baselineX=x; baselineY=y; baselineZ=z; baselineTotal=total;
+                baselineWorldX=worldX; baselineWorldY=worldY; baselineWorldZ=worldZ;
             }else{
                 baselineX+=(x-baselineX)/n;
                 baselineY+=(y-baselineY)/n;
                 baselineZ+=(z-baselineZ)/n;
                 baselineTotal+=(total-baselineTotal)/n;
+                baselineWorldX+=(worldX-baselineWorldX)/n;
+                baselineWorldY+=(worldY-baselineWorldY)/n;
+                baselineWorldZ+=(worldZ-baselineWorldZ)/n;
             }
-            if(baselineSamples>=40) baselineReady=true;
+            if(baselineSamples>=60) baselineReady=true;
         }
 
         if(last>0){
             double dt=(e.timestamp-last)/1e9;
             if(dt>0){
                 rate=(float)(Math.abs(total-prev)/dt);
-                smoothRate=smoothRate*0.82f+rate*0.18f;
+                float filtered=Math.min(rate,50f);
+                smoothRate=smoothRate*0.90f+filtered*0.10f;
             }
         }
         prev=total;
@@ -156,7 +193,18 @@ public class MainActivity extends Activity implements SensorEventListener {
         if(v!=null) v.postInvalidate();
     }
 
-    @Override public void onAccuracyChanged(Sensor s,int a){}
+    void recalibrate(){
+        baselineReady=false;
+        baselineSamples=0;
+        radarTrail.clear();
+        smoothRate=0f;
+        rate=0f;
+        if(v!=null) v.invalidate();
+    }
+
+    @Override public void onAccuracyChanged(Sensor s,int a){
+        if(s!=null && s.getType()==Sensor.TYPE_MAGNETIC_FIELD) sensorAccuracy=a;
+    }
 
     @Override protected void onDestroy(){
         super.onDestroy();
@@ -313,11 +361,11 @@ public class MainActivity extends Activity implements SensorEventListener {
 
         void radar(Canvas c,float w){
             box(c,10,105,w-10,500);
-            t(c,"◎  RADAR",22,131,19,white);
-            t(c,"REAL MAGNETIC DIRECTION",w-145,131,8,muted);
+            t(c,"◎  RADAR 2.0",22,131,19,white);
+            t(c,rotationReady?"ORIENTATION LOCKED":"ORIENTATION SENSOR N/A",w-145,131,8,rotationReady?green:Color.RED);
 
-            float cx=w/2f, cy=300f;
-            float maxR=Math.min(125f,w/2f-25f);
+            float cx=w/2f, cy=292f;
+            float maxR=Math.min(124f,w/2f-28f);
 
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(1.5f);
@@ -327,33 +375,47 @@ public class MainActivity extends Activity implements SensorEventListener {
             c.drawLine(cx-maxR,cy,cx+maxR,cy,p);
             c.drawLine(cx,cy-maxR,cx,cy+maxR,p);
 
+            // Cardinal labels: the radar is world/compass-relative, not phone-relative.
+            t(c,"N",cx-4,cy-maxR-8,10,muted);
+            t(c,"S",cx-4,cy+maxR+17,10,muted);
+            t(c,"W",cx-maxR-17,cy+4,10,muted);
+            t(c,"E",cx+maxR+8,cy+4,10,muted);
+
             double seconds=System.nanoTime()/1_000_000_000.0;
             float sweep=(float)((seconds*0.95)%(Math.PI*2));
             p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(2.5f);
+            p.setStrokeWidth(2.0f);
             p.setColor(green);
             c.drawLine(cx,cy,cx+(float)Math.cos(sweep)*maxR,cy+(float)Math.sin(sweep)*maxR,p);
 
-            float dx=baselineReady?(x-baselineX):0f;
-            float dy=baselineReady?(y-baselineY):0f;
+            float dx=baselineReady?(worldX-baselineWorldX):0f;
+            float dy=baselineReady?(worldY-baselineWorldY):0f;
             float horizontalDelta=(float)Math.sqrt(dx*dx+dy*dy);
-            float sensitivityScale=radarSensitivity==1?20f:(radarSensitivity==2?12f:7f);
-            float targetRadius=Math.min(maxR,horizontalDelta*sensitivityScale);
-            float dirLen=(float)Math.sqrt(dx*dx+dy*dy);
-            float dirX=dirLen>0.15f?dx/dirLen:0f;
-            float dirY=dirLen>0.15f?dy/dirLen:0f;
-            float targetX=cx+dirX*targetRadius;
-            float targetY=cy+dirY*targetRadius;
 
-            if(baselineReady&&targetRadius>3f){
+            // Low-pass the vector itself so the target moves gradually instead of jumping.
+            radarTargetX=radarTargetX*0.82f+dx*0.18f;
+            radarTargetY=radarTargetY*0.82f+dy*0.18f;
+
+            float sensitivityScale=radarSensitivity==1?16f:(radarSensitivity==2?9f:5f);
+            float targetRadius=Math.min(maxR,(float)Math.sqrt(radarTargetX*radarTargetX+radarTargetY*radarTargetY)*sensitivityScale);
+            float dirLen=(float)Math.sqrt(radarTargetX*radarTargetX+radarTargetY*radarTargetY);
+            float dirX=dirLen>0.20f?radarTargetX/dirLen:0f;
+            float dirY=dirLen>0.20f?radarTargetY/dirLen:0f;
+
+            // Android world X/Y are fixed to the environment, so rotating the phone
+            // no longer rotates this dot with the handset.
+            float targetX=cx+dirX*targetRadius;
+            float targetY=cy-dirY*targetRadius;
+
+            if(baselineReady && targetRadius>3f && horizontalDelta>0.35f){
                 if(radarTrail.size()>24) radarTrail.removeFirst();
                 radarTrail.addLast(new RadarPoint(targetX,targetY,1f));
             }
             for(RadarPoint rp:radarTrail){
-                rp.alpha*=0.88f;
+                rp.alpha*=0.90f;
                 p.setStyle(Paint.Style.FILL);
-                p.setColor(Color.argb((int)(Math.max(0.08f,rp.alpha)*120),0,230,160));
-                c.drawCircle(rp.x,rp.y,3.5f,p);
+                p.setColor(Color.argb((int)(Math.max(0.08f,rp.alpha)*115),0,230,160));
+                c.drawCircle(rp.x,rp.y,3.2f,p);
             }
             radarTrail.removeIf(rp->rp.alpha<0.10f);
 
@@ -361,13 +423,25 @@ public class MainActivity extends Activity implements SensorEventListener {
             p.setColor(green);
             c.drawCircle(targetX,targetY,baselineReady?6f:4f,p);
 
-            t(c,baselineReady?"BASELINE LOCKED":"CALIBRATING...",22,435,9,baselineReady?green:muted);
-            t(c,String.format(Locale.US,"Δ FIELD  %.2f µT",horizontalDelta),22,455,10,white);
-            t(c,String.format(Locale.US,"CHANGE  %.3f µT/s",smoothRate),22,475,10,muted);
-            t(c,"SENSITIVITY",w-125,435,8,muted);
+            String acc;
+            switch(sensorAccuracy){
+                case SensorManager.SENSOR_STATUS_ACCURACY_HIGH: acc="HIGH"; break;
+                case SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM: acc="MEDIUM"; break;
+                case SensorManager.SENSOR_STATUS_ACCURACY_LOW: acc="LOW"; break;
+                default: acc="UNRELIABLE";
+            }
+
+            t(c,baselineReady?"BASELINE LOCKED":"CALIBRATING 60 SAMPLES",22,430,9,baselineReady?green:muted);
+            t(c,String.format(Locale.US,"FIELD  %.2f µT",total),22,450,10,white);
+            t(c,String.format(Locale.US,"Δ FIELD  %.2f µT",horizontalDelta),22,468,10,white);
+            t(c,String.format(Locale.US,"RATE  %.3f µT/s",smoothRate),22,486,10,muted);
+
+            t(c,String.format(Locale.US,"HEADING  %03d°",(int)headingDeg),w-105,430,9,white);
+            t(c,"SENSOR  "+acc,w-105,448,8,muted);
+            t(c,"SENSITIVITY",w-105,466,8,muted);
             String sens=radarSensitivity==1?"LOW":(radarSensitivity==2?"MEDIUM":"HIGH");
-            t(c,sens,w-67,455,10,white);
-            t(c,"TAP TO CHANGE",w-105,475,7,muted);
+            t(c,sens,w-105,484,9,white);
+            t(c,"TAP CALIBRATE / SENSITIVITY",w-165,506,7,muted);
         }
 
         void camera(Canvas c,float w){
@@ -392,10 +466,16 @@ public class MainActivity extends Activity implements SensorEventListener {
                         tab=n;
                         invalidate();
                     }
-                }else if(tab==3 && yPos>=420 && yPos<=490 && xPos>=230){
-                    radarSensitivity++;
-                    if(radarSensitivity>3) radarSensitivity=1;
-                    invalidate();
+                }else if(tab==3 && yPos>=410 && yPos<=515){
+                    if(yPos>=410 && yPos<=440 && xPos<180){
+                        recalibrate();
+                    }else if(xPos>=220){
+                        radarSensitivity++;
+                        if(radarSensitivity>3) radarSensitivity=1;
+                        invalidate();
+                    }else if(xPos<180){
+                        recalibrate();
+                    }
                 }
             }
             return true;
