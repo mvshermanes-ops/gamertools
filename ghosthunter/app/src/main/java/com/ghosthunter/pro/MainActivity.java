@@ -15,7 +15,15 @@ public class MainActivity extends Activity implements SensorEventListener {
     Sensor mag;
     GhostView v;
     float x,y,z,total,prev,rate;
+    float smoothRate=0f;
+    float baselineX,baselineY,baselineZ,baselineTotal;
+    boolean baselineReady=false;
+    int baselineSamples=0;
     long last;
+
+    final ArrayDeque<RadarPoint> radarTrail = new ArrayDeque<>();
+    int radarSensitivity = 2;
+    static class RadarPoint { float x,y,alpha; RadarPoint(float x,float y,float alpha){this.x=x;this.y=y;this.alpha=alpha;} }
 
     AudioRecord rec;
     volatile boolean audioOn=false;
@@ -121,9 +129,27 @@ public class MainActivity extends Activity implements SensorEventListener {
         if(e.sensor.getType()!=Sensor.TYPE_MAGNETIC_FIELD)return;
         x=e.values[0]; y=e.values[1]; z=e.values[2];
         total=(float)Math.sqrt(x*x+y*y+z*z);
+
+        if(!baselineReady){
+            baselineSamples++;
+            float n=baselineSamples;
+            if(baselineSamples==1){
+                baselineX=x; baselineY=y; baselineZ=z; baselineTotal=total;
+            }else{
+                baselineX+=(x-baselineX)/n;
+                baselineY+=(y-baselineY)/n;
+                baselineZ+=(z-baselineZ)/n;
+                baselineTotal+=(total-baselineTotal)/n;
+            }
+            if(baselineSamples>=40) baselineReady=true;
+        }
+
         if(last>0){
             double dt=(e.timestamp-last)/1e9;
-            if(dt>0) rate=(float)(Math.abs(total-prev)/dt);
+            if(dt>0){
+                rate=(float)(Math.abs(total-prev)/dt);
+                smoothRate=smoothRate*0.82f+rate*0.18f;
+            }
         }
         prev=total;
         last=e.timestamp;
@@ -288,6 +314,7 @@ public class MainActivity extends Activity implements SensorEventListener {
         void radar(Canvas c,float w){
             box(c,10,105,w-10,500);
             t(c,"◎  RADAR",22,131,19,white);
+            t(c,"REAL MAGNETIC DIRECTION",w-145,131,8,muted);
 
             float cx=w/2f, cy=300f;
             float maxR=Math.min(125f,w/2f-25f);
@@ -296,26 +323,51 @@ public class MainActivity extends Activity implements SensorEventListener {
             p.setStrokeWidth(1.5f);
             p.setColor(Color.rgb(40,70,80));
             for(int i=1;i<=4;i++) c.drawCircle(cx,cy,maxR*i/4f,p);
-
             p.setColor(Color.rgb(25,55,65));
             c.drawLine(cx-maxR,cy,cx+maxR,cy,p);
             c.drawLine(cx,cy-maxR,cx,cy+maxR,p);
 
             double seconds=System.nanoTime()/1_000_000_000.0;
-            float angle=(float)((seconds*1.35)%(Math.PI*2));
+            float sweep=(float)((seconds*0.95)%(Math.PI*2));
             p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(3);
+            p.setStrokeWidth(2.5f);
             p.setColor(green);
-            c.drawLine(cx,cy,cx+(float)Math.cos(angle)*maxR,cy+(float)Math.sin(angle)*maxR,p);
+            c.drawLine(cx,cy,cx+(float)Math.cos(sweep)*maxR,cy+(float)Math.sin(sweep)*maxR,p);
+
+            float dx=baselineReady?(x-baselineX):0f;
+            float dy=baselineReady?(y-baselineY):0f;
+            float horizontalDelta=(float)Math.sqrt(dx*dx+dy*dy);
+            float sensitivityScale=radarSensitivity==1?20f:(radarSensitivity==2?12f:7f);
+            float targetRadius=Math.min(maxR,horizontalDelta*sensitivityScale);
+            float dirLen=(float)Math.sqrt(dx*dx+dy*dy);
+            float dirX=dirLen>0.15f?dx/dirLen:0f;
+            float dirY=dirLen>0.15f?dy/dirLen:0f;
+            float targetX=cx+dirX*targetRadius;
+            float targetY=cy+dirY*targetRadius;
+
+            if(baselineReady&&targetRadius>3f){
+                if(radarTrail.size()>24) radarTrail.removeFirst();
+                radarTrail.addLast(new RadarPoint(targetX,targetY,1f));
+            }
+            for(RadarPoint rp:radarTrail){
+                rp.alpha*=0.88f;
+                p.setStyle(Paint.Style.FILL);
+                p.setColor(Color.argb((int)(Math.max(0.08f,rp.alpha)*120),0,230,160));
+                c.drawCircle(rp.x,rp.y,3.5f,p);
+            }
+            radarTrail.removeIf(rp->rp.alpha<0.10f);
 
             p.setStyle(Paint.Style.FILL);
-            float anomaly=Math.min(maxR,Math.max(0,rate*12f));
-            float px=cx+(float)Math.cos(angle)*anomaly;
-            float py=cy+(float)Math.sin(angle)*anomaly;
-            c.drawCircle(px,py,5,p);
+            p.setColor(green);
+            c.drawCircle(targetX,targetY,baselineReady?6f:4f,p);
 
-            t(c,String.format(Locale.US,"CHANGE  %.3f µT/s",rate),22,465,10,muted);
-            t(c,"SMOOTH LIVE SENSOR RADAR",w-145,465,8,muted);
+            t(c,baselineReady?"BASELINE LOCKED":"CALIBRATING...",22,435,9,baselineReady?green:muted);
+            t(c,String.format(Locale.US,"Δ FIELD  %.2f µT",horizontalDelta),22,455,10,white);
+            t(c,String.format(Locale.US,"CHANGE  %.3f µT/s",smoothRate),22,475,10,muted);
+            t(c,"SENSITIVITY",w-125,435,8,muted);
+            String sens=radarSensitivity==1?"LOW":(radarSensitivity==2?"MEDIUM":"HIGH");
+            t(c,sens,w-67,455,10,white);
+            t(c,"TAP TO CHANGE",w-105,475,7,muted);
         }
 
         void camera(Canvas c,float w){
@@ -340,6 +392,10 @@ public class MainActivity extends Activity implements SensorEventListener {
                         tab=n;
                         invalidate();
                     }
+                }else if(tab==3 && yPos>=420 && yPos<=490 && xPos>=230){
+                    radarSensitivity++;
+                    if(radarSensitivity>3) radarSensitivity=1;
+                    invalidate();
                 }
             }
             return true;
