@@ -17,6 +17,10 @@ public class MainActivity extends Activity implements SensorEventListener {
     GhostView v;
     float x,y,z,total,prev,rate;
     float smoothRate=0f;
+    float filteredTotal=0f;
+    float spikeDelta=0f;
+    boolean spikeDetected=false;
+    long spikeUntil=0L;
     float baselineX,baselineY,baselineZ,baselineTotal;
     float worldX,worldY,worldZ;
     float baselineWorldX,baselineWorldY,baselineWorldZ;
@@ -30,7 +34,7 @@ public class MainActivity extends Activity implements SensorEventListener {
     long last;
 
     final ArrayDeque<RadarPoint> radarTrail = new ArrayDeque<>();
-    int radarSensitivity = 2;
+    int radarSensitivity = 1;
     float radarTargetX=0f, radarTargetY=0f;
     static class RadarPoint { float x,y,alpha; RadarPoint(float x,float y,float alpha){this.x=x;this.y=y;this.alpha=alpha;} }
 
@@ -153,6 +157,8 @@ public class MainActivity extends Activity implements SensorEventListener {
 
         x=e.values[0]; y=e.values[1]; z=e.values[2];
         total=(float)Math.sqrt(x*x+y*y+z*z);
+        if(filteredTotal==0f) filteredTotal=total;
+        filteredTotal=filteredTotal*0.92f+total*0.08f;
         sensorAccuracy=e.accuracy;
 
         if(rotationReady){
@@ -186,8 +192,15 @@ public class MainActivity extends Activity implements SensorEventListener {
             if(dt>0){
                 rate=(float)(Math.abs(total-prev)/dt);
                 float filtered=Math.min(rate,50f);
-                smoothRate=smoothRate*0.90f+filtered*0.10f;
+                smoothRate=smoothRate*0.94f+filtered*0.06f;
             }
+        }
+        if(baselineReady){
+            spikeDelta=Math.abs(filteredTotal-baselineTotal);
+            float spikeThreshold=radarSensitivity==1?8.0f:(radarSensitivity==2?4.0f:2.0f);
+            boolean bigChange=spikeDelta>=spikeThreshold && smoothRate>=1.5f;
+            if(bigChange){ spikeDetected=true; spikeUntil=System.currentTimeMillis()+900L; }
+            else if(System.currentTimeMillis()>spikeUntil) spikeDetected=false;
         }
         prev=total;
         last=e.timestamp;
@@ -199,6 +212,10 @@ public class MainActivity extends Activity implements SensorEventListener {
         baselineSamples=0;
         radarTrail.clear();
         smoothRate=0f;
+        filteredTotal=0f;
+        spikeDelta=0f;
+        spikeDetected=false;
+        spikeUntil=0L;
         rate=0f;
         if(v!=null) v.invalidate();
     }
@@ -392,12 +409,15 @@ public class MainActivity extends Activity implements SensorEventListener {
             float dx=baselineReady?(worldX-baselineWorldX):0f;
             float dy=baselineReady?(worldY-baselineWorldY):0f;
             float horizontalDelta=(float)Math.sqrt(dx*dx+dy*dy);
+            float vectorDelta=(float)Math.sqrt(dx*dx+dy*dy+(worldZ-baselineWorldZ)*(worldZ-baselineWorldZ));
+            float movementThreshold=radarSensitivity==1?4.0f:(radarSensitivity==2?2.0f:1.0f);
+            if(vectorDelta<movementThreshold){ dx=0f; dy=0f; }
 
             // Low-pass the vector itself so the target moves gradually instead of jumping.
             radarTargetX=radarTargetX*0.82f+dx*0.18f;
             radarTargetY=radarTargetY*0.82f+dy*0.18f;
 
-            float sensitivityScale=radarSensitivity==1?16f:(radarSensitivity==2?9f:5f);
+            float sensitivityScale=radarSensitivity==1?7f:(radarSensitivity==2?9f:12f);
             float targetRadius=Math.min(maxR,(float)Math.sqrt(radarTargetX*radarTargetX+radarTargetY*radarTargetY)*sensitivityScale);
             float dirLen=(float)Math.sqrt(radarTargetX*radarTargetX+radarTargetY*radarTargetY);
             float dirX=dirLen>0.20f?radarTargetX/dirLen:0f;
@@ -433,9 +453,14 @@ public class MainActivity extends Activity implements SensorEventListener {
             }
 
             t(c,baselineReady?"BASELINE LOCKED":"CALIBRATING 60 SAMPLES",22,430,9,baselineReady?green:muted);
-            t(c,String.format(Locale.US,"FIELD  %.2f µT",total),22,450,10,white);
-            t(c,String.format(Locale.US,"Δ FIELD  %.2f µT",horizontalDelta),22,468,10,white);
+            t(c,String.format(Locale.US,"FIELD  %.2f µT",filteredTotal),22,450,10,white);
+            t(c,String.format(Locale.US,"Δ FIELD  %.2f µT",spikeDelta),22,468,10,white);
             t(c,String.format(Locale.US,"RATE  %.3f µT/s",smoothRate),22,486,10,muted);
+            if(spikeDetected){
+                t(c,"⚠  MAGNETIC SPIKE",w/2f-48,522,11,Color.RED);
+            }else{
+                t(c,"STABLE / FILTERED",w/2f-43,522,8,muted);
+            }
 
             t(c,String.format(Locale.US,"HEADING  %03d°",(int)headingDeg),w-105,430,9,white);
             t(c,"SENSOR  "+acc,w-105,448,8,muted);
